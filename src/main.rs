@@ -1,3 +1,5 @@
+use std::env;
+
 #[derive(Debug)]
 enum Token {
     Plus,
@@ -20,7 +22,12 @@ impl Parser {
     pub fn new(source: String) -> Self {
         Self {
             index: 0,
-            source: source.replace(" ", "").replace("\n", ""),
+            source: source
+                .lines()
+                .filter(|x| !x.contains('#'))
+                .collect::<String>()
+                .replace("\n", "")
+                .replace(" ", ""),
         }
     }
     fn parse(&mut self) -> Vec<Token> {
@@ -35,7 +42,7 @@ impl Parser {
                 ']' => parsed.push(Token::EndLoop),
                 ',' => parsed.push(Token::Input),
                 '.' => parsed.push(Token::Output),
-                n => panic!("Invalid input {} at position {}", n, self.index),
+                _ => (),
             }
             self.next()
         }
@@ -60,6 +67,7 @@ struct Runtime {
     loop_depth: usize,
     mem_ptr: usize,
 }
+
 impl Runtime {
     fn run(&mut self) {
         while self.has_next() {
@@ -85,8 +93,17 @@ impl Runtime {
                     }
                 }
                 Token::Input => todo!(),
-                Token::Output => print!("{} ", self.memory[self.mem_ptr]),
-                _ => unreachable!(),
+                Token::Output => {
+                    if self.memory[self.mem_ptr] < 0 {
+                        panic!("dumbass. dont print negative values");
+                    } else {
+                        print!(
+                            "{}",
+                            char::from_u32(self.memory[self.mem_ptr].unsigned_abs())
+                                .unwrap_or('\0')
+                        );
+                    }
+                }
             };
             //eprintln!("memory {:?}", self.memory);
             self.index += 1;
@@ -102,11 +119,10 @@ impl Runtime {
 }
 
 fn main() {
-    let mut parser = Parser::new(String::from(
-        ">+++++++++[<++++++++>-]<.>+++++++[<++++>-]<+.+++++++..+++.[-]
->++++++++[<++++>-] <.>+++++++++++[<++++++++>-]<-.--------.+++
-.------.--------.[-]>++++++++[<++++>- ]<+.[-]++++++++++.",
-    ));
+    let args: Vec<String> = env::args().collect();
+    let source = String::from_utf8(std::fs::read(args[1].clone()).unwrap()).unwrap();
+    println!("{}", source);
+    let mut parser = Parser::new(String::from(source));
     let mut runtime = Runtime {
         memory: Vec::new(),
         parsed: parser.parse(),
@@ -115,6 +131,6 @@ fn main() {
         loop_depth: 0,
         mem_ptr: 0,
     };
-    eprintln!("{:?}", runtime.parsed);
     runtime.run();
+    print!("\n");
 }
